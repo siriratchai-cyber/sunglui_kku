@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>sungluiKKU—รวมกำหนดส่งงานทุกวิชาไว้ที่เดียว</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+<link rel="stylesheet" href="css/style.css" />
+</head>
+
+<body>
+
+<canvas id="bubble-canvas"></canvas>
+
+<!-- ===== Auth screen ===== -->
+<div class="modal-overlay auth-screen is-open" id="auth-screen">
+  <div class="modal auth-card">
+    <div class="brand auth-brand">
+      <img src="/sunglui.png" alt="sunglui KKU" width="180" height="70">
+    </div>
+
+    <h3 id="auth-title">เข้าสู่ระบบ sungluiKKU</h3>
+
+    <form id="auth-form" data-mode="login">
+      <label>อีเมล
+        <input type="email" id="auth-email" required placeholder="you@kku.ac.th" />
+      </label>
+
+      <label>รหัสผ่าน
+        <input type="password" id="auth-password" required minlength="6" placeholder="อย่างน้อย 6 ตัวอักษร" />
+      </label>
+
+      <p id="auth-error" class="auth-error"></p>
+
+      <div class="modal-actions" style="justify-content:stretch;">
+        <button type="submit" class="btn btn-primary" id="auth-submit-btn" style="width:100%;">
+          เข้าสู่ระบบ
+        </button>
+      </div>
+    </form>
+
+    <button type="button" class="btn btn-secondary auth-google-btn" id="auth-google-btn">
+      เข้าสู่ระบบด้วย Google
+    </button>
+
+    <button type="button" class="btn btn-ghost auth-toggle-btn" id="auth-toggle-mode">
+      ยังไม่มีบัญชี? สมัครสมาชิก
+    </button>
+  </div>
+</div>
+
+<div class="app-shell" style="display:none;">
+
+  <!-- ===== Sidebar / Mobile bottom navigation ===== -->
+  <aside class="sidebar">
+
+    <div class="brand">
+      <img src="/sunglui.png" alt="sunglui KKU" width="200" height="90">
+    </div>
+
+    <nav class="nav">
+      <button class="nav-item is-active" data-view="dashboard">
+        <span class="nav-icon">◈</span>
+        <span>ภาพรวม</span>
+      </button>
+
+      <button class="nav-item" data-view="assignments">
+        <span class="nav-icon">▤</span>
+        <span>งานทั้งหมด</span>
+      </button>
+
+      <button class="nav-item" data-view="subjects">
+        <span class="nav-icon">◐</span>
+        <span>รายวิชา</span>
+      </button>
+
+      <button class="nav-item" data-view="calendar">
+        <span class="nav-icon">▦</span>
+        <span>ปฏิทิน</span>
+      </button>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="user-email" id="user-email-label"></div>
+
+      <button id="notif-toggle-btn" class="ghost-btn" aria-label="เปิดหรือปิดการแจ้งเตือน">
+        🔔 เปิดการแจ้งเตือน
+      </button>
+
+      <button id="logout-btn" class="ghost-btn" aria-label="ออกจากระบบ">
+        🚪 ออกจากระบบ
+      </button>
+    </div>
+
+  </aside>
+
+  <!-- ===== Main ===== -->
+  <main class="main">
+
+    <header class="topbar">
+      <div class="topbar-heading">
+        <h1 id="view-title">ภาพรวมงานของคุณ</h1>
+        <p id="view-subtitle">ทุกกำหนดส่ง ทุกวิชา อยู่ในหน้าเดียว</p>
+      </div>
+
+      <div class="topbar-actions">
+        <button class="btn btn-secondary" id="add-subject-btn">+ เพิ่มรายวิชา</button>
+        <button class="btn btn-primary" id="add-assignment-btn">+ เพิ่มงาน</button>
+      </div>
+    </header>
+
+    <!-- Dashboard -->
+    <section id="view-dashboard" class="view is-active">
+      <div class="stat-row">
+
+        <div class="stat-card stat-total">
+          <span class="stat-num" id="stat-total">0</span>
+          <span class="stat-label">งานทั้งหมด</span>
+        </div>
+
+        <div class="stat-card stat-urgent">
+          <span class="stat-num" id="stat-urgent">0</span>
+          <span class="stat-label">ใกล้ถึงกำหนด (≤3 วัน)</span>
+        </div>
+
+        <div class="stat-card stat-done">
+          <span class="stat-num" id="stat-done">0</span>
+          <span class="stat-label">ส่งแล้ว</span>
+        </div>
+
+        <div class="stat-card stat-subjects">
+          <span class="stat-num" id="stat-subjects">0</span>
+          <span class="stat-label">รายวิชา</span>
+        </div>
+
+      </div>
+
+      <div class="panel">
+        <div class="panel-head">
+          <h2>งานที่ใกล้ถึงกำหนดส่ง</h2>
+        </div>
+        <div id="upcoming-list" class="assignment-list"></div>
+      </div>
+    </section>
+
+    <!-- Assignments -->
+    <section id="view-assignments" class="view">
+      <div class="filter-bar">
+        <select id="filter-subject" class="select-field">
+          <option value="">ทุกรายวิชา</option>
+        </select>
+
+        <select id="filter-status" class="select-field">
+          <option value="">ทุกสถานะ</option>
+          <option value="pending">ยังไม่ส่ง</option>
+          <option value="done">ส่งแล้ว</option>
+        </select>
+      </div>
+
+      <div id="all-assignment-list" class="assignment-list"></div>
+    </section>
+
+    <!-- Subjects -->
+    <section id="view-subjects" class="view">
+      <div id="subject-grid" class="subject-grid"></div>
+    </section>
+
+    <!-- Calendar -->
+    <section id="view-calendar" class="view">
+      <div class="panel">
+
+        <div class="calendar-toolbar">
+          <button class="icon-btn cal-nav-btn" id="cal-prev" title="เดือนก่อนหน้า">‹</button>
+          <h2 id="cal-month-label">เดือน</h2>
+          <button class="icon-btn cal-nav-btn" id="cal-next" title="เดือนถัดไป">›</button>
+          <button class="btn btn-ghost cal-today-btn" id="cal-today">วันนี้</button>
+        </div>
+
+        <div class="calendar-weekdays">
+          <span>อา.</span>
+          <span>จ.</span>
+          <span>อ.</span>
+          <span>พ.</span>
+          <span>พฤ.</span>
+          <span>ศ.</span>
+          <span>ส.</span>
+        </div>
+
+        <div id="calendar-grid" class="calendar-grid"></div>
+      </div>
+
+      <div class="panel" id="calendar-day-panel" style="margin-top:18px; display:none;">
+        <div class="panel-head">
+          <h2 id="calendar-day-title">งานของวันที่เลือก</h2>
+        </div>
+        <div id="calendar-day-list" class="assignment-list"></div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<!-- ===== Modal: Add/Edit Subject ===== -->
+<div class="modal-overlay" id="subject-modal">
+  <div class="modal">
+
+    <h3 id="subject-modal-title">เพิ่มรายวิชาใหม่</h3>
+
+    <form id="subject-form">
+
+      <input type="hidden" id="subject-id" />
+
+      <label>ชื่อรายวิชา
+        <input type="text" id="subject-name" required placeholder="เช่น การเขียนโปรแกรมเว็บ" />
+      </label>
+
+      <label>รหัสวิชา (ถ้ามี)
+        <input type="text" id="subject-code" placeholder="เช่น CS204" />
+      </label>
+
+      <label>อาจารย์ผู้สอน (ถ้ามี)
+        <input type="text" id="subject-instructor" placeholder="เช่น อ. สมชาย ใจดี" />
+      </label>
+
+      <label>สีประจำวิชา
+        <input type="color" id="subject-color" value="#A8552E" />
+      </label>
+
+      <div class="link-rows-field">
+        <span class="field-label">
+          ช่องทางของวิชานี้
+          <span class="field-hint">
+            เพิ่มได้หลายช่องทาง — ที่เรียน, ที่ส่งงาน, เช็คชื่อ, มีทประจำ, เฟซบุ๊ก, อีเมล ฯลฯ
+          </span>
+        </span>
+
+        <div id="subject-links-list"></div>
+
+        <button type="button" class="btn btn-ghost btn-sm" id="add-link-row-btn">
+          + เพิ่มช่องทาง
+        </button>
+      </div>
+
+      <label>บันทึกเพิ่มเติม (ถ้ามี)
+        <textarea id="subject-note" rows="2" placeholder="เช่น หมายเหตุอื่น ๆ เกี่ยวกับวิชานี้"></textarea>
+      </label>
+
+      <div class="modal-actions">
+        <button type="button" class="btn btn-ghost" data-close-modal>ยกเลิก</button>
+        <button type="submit" class="btn btn-primary">บันทึก</button>
+      </div>
+
+    </form>
+  </div>
+</div>
+
+<!-- ===== Modal: Add/Edit Assignment ===== -->
+<div class="modal-overlay" id="assignment-modal">
+  <div class="modal">
+
+    <h3 id="assignment-modal-title">เพิ่มงานใหม่</h3>
+
+    <form id="assignment-form">
+
+      <input type="hidden" id="assignment-id" />
+
+      <label>รายวิชา
+        <select id="assignment-subject" required></select>
+      </label>
+
+      <div id="assignment-subject-hint" class="subject-hint"></div>
+
+      <label>ชื่องาน
+        <input type="text" id="assignment-title" required placeholder="เช่น การบ้านบทที่ 5" />
+      </label>
+
+      <label>รายละเอียด (ถ้ามี)
+        <textarea id="assignment-desc" rows="2" placeholder="รายละเอียดเพิ่มเติม"></textarea>
+      </label>
+
+      <label>กำหนดส่ง
+        <input type="datetime-local" id="assignment-due" required />
+      </label>
+
+      <label>ลิงก์/อีเมลส่งงานเฉพาะงานนี้ (ถ้าต่างจากค่าเริ่มต้นของวิชา)
+        <input type="text" id="assignment-link" placeholder="https://... หรือ อีเมลอาจารย์" />
+      </label>
+
+      <label>ความสำคัญ
+        <select id="assignment-priority">
+          <option value="low">น้อย</option>
+          <option value="medium" selected>ปานกลาง</option>
+          <option value="high">มาก</option>
+        </select>
+      </label>
+
+      <div class="modal-actions">
+        <button type="button" class="btn btn-ghost" data-close-modal>ยกเลิก</button>
+        <button type="submit" class="btn btn-primary">บันทึก</button>
+      </div>
+
+    </form>
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script src="js/bubbles.js"></script>
+<script type="module" src="js/firebase-config.js"></script>
+<script src="js/app.js"></script>
+
+</body>
+</html>
